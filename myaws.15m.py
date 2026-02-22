@@ -207,6 +207,25 @@ def app_print_logo():
     print('---')
 
 
+def clear_tinydb(db):
+    # Newer TinyDB (v4+)
+    if hasattr(db, "drop_tables"):
+        db.drop_tables()
+        return
+
+    # Older TinyDB (v1-v3)
+    if hasattr(db, "purge_tables"):
+        db.purge_tables()
+        return
+
+    # Fallback: clear the default table (older APIs)
+    if hasattr(db, "purge"):
+        db.purge()
+        return
+
+    raise RuntimeError(f"Don't know how to clear TinyDB for {type(db)}")
+
+
 # Pretty printing
 def color_state(state):
     if state == 'running':
@@ -276,7 +295,7 @@ def init():
 # The update-pricing function: Retrieve EC2 pricing 
 def update_pricing(): 
     # Purge existing database
-    database.truncate()
+    clear_tinydb(database)
     # Get an EC2 price list from amazon
     ec2_offer = awspricing.offer('AmazonEC2')
     # Retrieve latest pricing for vm and insert in database
