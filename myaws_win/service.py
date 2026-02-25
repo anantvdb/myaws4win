@@ -6,8 +6,6 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, List, Tuple
 
-import awspricing
-import six
 from currency_converter import CurrencyConverter
 from tinydb import Query, TinyDB
 
@@ -71,31 +69,52 @@ class MyAwsService:
     def update_pricing(self) -> None:
         with self.lock:
             self._clear_tinydb()
-            ec2_offer = awspricing.offer("AmazonEC2")
             for vm_group, vm_type_list in self.config.vm_types:
                 for vm_type, _ in vm_type_list:
-                    value = "n/a"
                     try:
-                        sku = ec2_offer.search_skus(
-                            instance_type=vm_group + vm_type,
-                            operating_system=self.config.aws_operating_system,
-                            tenancy="Shared",
-                            location=self.config.aws_location_name,
-                            licenseModel="No License required",
-                            preInstalledSw="NA",
-                            capacitystatus="Used",
-                        ).pop()
-                        value = next(
-                            six.itervalues(
-                                next(
-                                    six.itervalues(ec2_offer._offer_data[sku]["terms"]["OnDemand"])
-                                )["priceDimensions"]
-                            )
-                        )["pricePerUnit"]["USD"]
+                        value = self._lookup_instance_price(vm_group + vm_type)
                     except Exception:
                         value = "n/a"
                     self.database.insert({"type": vm_group + vm_type, "pricing": value})
             self.database.insert({"timestamp": datetime.datetime.now().strftime("%Y-%m-%d %H:%M")})
+
+    def _lookup_instance_price(self, instance_type: str) -> str:
+        response = self.cli.run_json(
+            [
+                "pricing",
+                "get-products",
+                "--service-code",
+                "AmazonEC2",
+                "--filters",
+                f"Type=TERM_MATCH,Field=instanceType,Value={instance_type}",
+                f"Type=TERM_MATCH,Field=operatingSystem,Value={self.config.aws_operating_system}",
+                "Type=TERM_MATCH,Field=tenancy,Value=Shared",
+                f"Type=TERM_MATCH,Field=location,Value={self.config.aws_location_name}",
+                "Type=TERM_MATCH,Field=licenseModel,Value=No License required",
+                "Type=TERM_MATCH,Field=preInstalledSw,Value=NA",
+                "Type=TERM_MATCH,Field=capacitystatus,Value=Used",
+                "--max-results",
+                "1",
+            ]
+        )
+        price_list = response.get("PriceList", [])
+        if not price_list:
+            return "n/a"
+
+        first_entry = price_list[0]
+        if isinstance(first_entry, str):
+            payload = json.loads(first_entry)
+        else:
+            payload = first_entry
+
+        ondemand_terms = payload.get("terms", {}).get("OnDemand", {})
+        for term in ondemand_terms.values():
+            dimensions = term.get("priceDimensions", {})
+            for dimension in dimensions.values():
+                usd = dimension.get("pricePerUnit", {}).get("USD")
+                if usd:
+                    return usd
+        return "n/a"
 
     def _cache_file(self, prefix: str, today: datetime.date) -> Path:
         return self.state_dir / f"{prefix}-{today.strftime('%Y%m%d')}.json"
