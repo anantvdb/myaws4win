@@ -1,31 +1,90 @@
 
-# MyAWS - MacOS Menubar plugin
+# MyAWS for Windows (Python tray app)
 
-Displays information regarding your AWS EC2 virtual machines in the MacOS menubar. 
-Allows you to create, connect to and terminate EC2 virtual machines.
-Create and destroy EC2 images from virtual machines. Check storage consumption
+This repository now includes a Windows-native tray implementation that preserves the original MyAWS features without xbar/BitBar.
 
+The legacy macOS script is still present in `myaws.15m.py`.
 
-Start, connect to and terminate virtual machines
-![Imgur](https://i.imgur.com/yR5iPQy.jpg)
+## Features
 
-See console output in Menu Bar
-![Imgur](https://i.imgur.com/UpZnhNa.jpg)
+- View AMIs and related EC2 instances from tray menus
+- Deploy/start/stop/terminate EC2 virtual machines
+- Create, update, rebuild, and destroy AMIs
+- Open SSH sessions in a dedicated Windows terminal
+- View storage usage (volumes and snapshots)
+- View monthly and daily AWS Cost Explorer totals
+- Refresh data manually or on a background interval
 
-Create new virtual machines and retrieve up to date EC2 prices
-![Imgur](https://i.imgur.com/ZnsKTTo.jpg)
+## Project layout
 
-Check your current EC2 spending 
-![Imgur](https://i.imgur.com/n2FEdT1.jpg)
+- `main.py`: app entrypoint
+- `myaws_win/config.py`: configuration schema and loader
+- `myaws_win/aws_cli.py`: AWS/SSH command runner
+- `myaws_win/service.py`: business logic and AWS data/actions
+- `myaws_win/tray_app.py`: Windows tray UI with `pystray`
+- `requirements.txt`: Python dependencies
+- `myaws-windows.spec`: PyInstaller packaging spec
 
+## Prerequisites (Windows)
 
-## Licence: GPL v3
+1. Python 3.11+
+2. AWS CLI v2 (`aws --version`)
+3. OpenSSH client (`ssh -V`)
+4. AWS credentials configured (`aws configure`)
 
-## Installation instructions: 
+## Installation
 
-1. Ensure you have [aws command line tools](https://docs.aws.amazon.com/cli/latest/userguide/cli-install-macos.html) installed (AWS CLI 1 or 2 are both fine)
-2. Execute 'sudo pip install tinydb awspricing currencyconverter' in Terminal.app
-3. Ensure you have [xbar](https://github.com/matryer/xbar/releases/latest) installed.
-4. Copy [myaws.15m.py](myaws.15m.py) to your bitbar plugins folder and chmod +x the file from your terminal in that folder
-5. Run 'myaws.15m.py update' in Terminal.app to retrieve latest pricing
-6. Run xbar (version 2.1.7-beta or higher)
+```powershell
+python -m venv .venv
+.\.venv\Scripts\activate
+pip install -r requirements.txt
+```
+
+## First run
+
+```powershell
+python main.py --update-pricing
+python main.py
+```
+
+On first run, a default config file is generated at:
+
+- `%APPDATA%\MyAWS\config.json`
+
+Edit this file to set values such as:
+
+- `aws_owner_id`
+- `aws_key_name`
+- `aws_security_group_id`
+- `aws_region`
+- `aws_profile`
+
+## Optional commands
+
+```powershell
+python main.py --update-pricing
+python main.py --snapshot
+python main.py --config C:\path\to\config.json
+```
+
+## Packaging as EXE
+
+```powershell
+pip install pyinstaller
+pyinstaller myaws-windows.spec
+```
+
+The packaged app will be generated in `dist\myaws-windows.exe`.
+
+## Validation checklist
+
+- Confirm tray icon appears and menu refresh works
+- Validate deploy/start/stop/terminate for a test instance
+- Validate image create/update/rebuild/destroy on non-critical AMIs
+- Validate cost and storage values are shown
+- Validate SSH terminal opens and connects
+- Validate log export to the state directory
+
+## Licence
+
+GPL v3

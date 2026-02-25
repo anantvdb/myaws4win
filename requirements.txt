@@ -1,0 +1,7 @@
+awspricing
+currencyconverter
+Pillow
+pystray
+requests
+six
+tinydb
