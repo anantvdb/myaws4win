@@ -196,7 +196,7 @@ class TrayApp:
         for instance in instances:
             uptime_label = self._uptime_label(instance)
             title = f"{instance.instance_id} | {instance.state} | {instance.instance_type} | {instance.public_ip or '-'} | {uptime_label}"
-            items.append(pystray.MenuItem(title, pystray.Menu(self._instance_actions(instance))))
+            items.append(pystray.MenuItem(title, pystray.Menu(*self._instance_actions(instance))))
         return items
 
     def _instance_actions(self, instance: InstanceView) -> list[pystray.MenuItem]:
